@@ -1,9 +1,19 @@
 {
-  "name": "authorization-js",
-  "version": "1.0",
-  "description": "",
+  "name": "@rajce.pro/authorization-js",
+  "version": "1.0.1",
+  "description": "Simple JavaScript wrapper for the ketchup-authorization-server API",
   "main": "index.js",
-  "scripts": {},
+  "dependencies": {
+    "jest": "^29.6.2",
+    "merge-descriptors": "^1.0.1"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rajce-pro/ketchup-authorization-js.git"
+  },
   "keywords": [
     "authorization",
     "rajce.pro",
@@ -12,7 +22,8 @@
   ],
   "author": "ZorTik",
   "license": "MIT",
-  "dependencies": {
-    "merge-descriptors": "^1.0.1"
-  }
+  "bugs": {
+    "url": "https://github.com/rajce-pro/ketchup-authorization-js/issues"
+  },
+  "homepage": "https://github.com/rajce-pro/ketchup-authorization-js#readme"
 }

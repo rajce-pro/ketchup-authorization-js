@@ -3,7 +3,8 @@ module.exports = Authorizer;
 function Authorizer(baseUrl, principal, logErrors) {
     Object.assign(this, { baseUrl, principal, logErrors });
 
-    this.authorizedState = false;
+    this.tokenValue = undefined;
+    this.lastErr = undefined;
     return this;
 }
 
@@ -17,27 +18,34 @@ proto.authorize = async function() {
         throw new Error("Principal is not defined");
     }
 
-    const token = this.token.bind(this);
-    const basic = this.basic.bind(this);
+    const token = this.tokenAuth.bind(this);
+    const basic = this.basicAuth.bind(this);
 
-    var result = undefined;
+    let result = undefined;
 
     if (typeof principal === "string") {
         result = await token(url, principal);
+        if (result) {
+            this.tokenValue = { token: principal };
+        }
     } else if (Array.isArray(principal)) {
         result = await token(url, principal[0], false);
         if (!result) {
             result = await token(url, principal[1], true);
             this.principal = result;
+            if (result) {
+                this.tokenValue = result;
+            }
         }
     } else if (["principal", "credentials"].every(principal.hasOwnProperty.bind(principal))) {
         result = await basic(url, principal);
         this.principal = result;
+        if (result) {
+            this.tokenValue = result;
+        }
     } else {
         throw new Error("Invalid principal");
     }
-
-    this.authorizedState = result !== undefined;
 
     return this;
 }
@@ -71,7 +79,7 @@ proto.authorizedFetch = async function(relative, fetchInit, retry = true) {
     return result;
 }
 
-proto.token = async function token(
+proto.tokenAuth = async function tokenAuth(
     baseUrl, principal, isRefresh = false
 ) {
     const doCatch = this.doCatch;
@@ -81,6 +89,9 @@ proto.token = async function token(
         url += "/v1/auth/refresh";
         const init = {
             method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
             body: JSON.stringify({ refreshToken: principal })
         };
 
@@ -90,6 +101,7 @@ proto.token = async function token(
         const init = {
             method: "GET",
             headers: {
+                "Content-Type": "application/json",
                 "Authorization": "Bearer " + principal,
             }
         }
@@ -97,23 +109,41 @@ proto.token = async function token(
     }
 }
 
-proto.basic = async function basic(baseUrl, principal) {
+proto.basicAuth = async function basicAuth(baseUrl, principal) {
     const doCatch = this.doCatch;
     const url = baseUrl + "/v1/auth/authenticate";
     const init = {
         method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
         body: JSON.stringify(principal)
     };
     return await doCatch(fetch(url, init));
 }
 
 proto.authorized = function authorized() {
-    return this.authorizedState;
+    return this.tokenValue !== undefined;
+}
+
+proto.token = function token() {
+    validateState(this);
+    return this.tokenValue.token;
+}
+
+proto.refreshToken = function refreshToken() {
+    validateState(this);
+    return this.tokenValue.refreshToken;
 }
 
 proto.doCatch = async function doCatch(fetch) {
     try {
-        return await fetch;
+        const result = await fetch.then(res => res.json());
+        if (result.error) {
+            this.lastErr = result.error;
+            return undefined;
+        }
+        return result;
     } catch (error) {
         if (this.logErrors) {
             console.error(error);
@@ -123,7 +153,7 @@ proto.doCatch = async function doCatch(fetch) {
 }
 
 function validateState(inst) {
-    if (!inst.authorizedState) {
+    if (!inst.authorized()) {
         throw new Error("Unauthorized");
     }
 }
