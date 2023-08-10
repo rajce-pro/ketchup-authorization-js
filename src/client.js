@@ -12,7 +12,11 @@ exports.init = function init(options) {
 };
 
 exports.authorize = function authorize(principal, callback) {
-    const inst = new this.authorizer(this.baseUrl, principal);
+    const Authorizer = this.authorizer;
+
+    // Authorizer represents single session opened by authorizing
+    // via principal.
+    const inst = new Authorizer(this.baseUrl, principal, !!this.logErrors);
 
     if (callback === undefined) {
         return inst.authorize();

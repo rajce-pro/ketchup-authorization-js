@@ -1,8 +1,9 @@
 module.exports = Authorizer;
 
-function Authorizer(baseUrl, principal) {
-    this.baseUrl = baseUrl;
-    this.principal = principal;
+function Authorizer(baseUrl, principal, logErrors) {
+    Object.assign(this, { baseUrl, principal, logErrors });
+
+    this.authorizedState = false;
     return this;
 }
 
@@ -12,7 +13,15 @@ proto.authorize = async function authorize() {
     const principal = this.principal;
     const url = this.baseUrl;
 
-    let result = undefined;
+    if (!principal) {
+        throw new Error("Principal is not defined");
+    }
+
+    const token = this.token.bind(this);
+    const basic = this.basic.bind(this);
+
+    var result = undefined;
+
     if (typeof principal === "string") {
         result = await token(url, principal);
     } else if (Array.isArray(principal)) {
@@ -21,18 +30,23 @@ proto.authorize = async function authorize() {
             result = await token(url, principal[1], true);
             this.principal = result;
         }
-    } else if (["username", "password"].every(principal.hasOwnProperty)) {
+    } else if (["principal", "credentials"].every(principal.hasOwnProperty.bind(principal))) {
         result = await basic(url, principal);
         this.principal = result;
+    } else {
+        throw new Error("Invalid principal");
     }
 
     this.authorizedState = result !== undefined;
+
     return this;
 }
 
-async function token(
+proto.token = async function token(
     baseUrl, principal, isRefresh = false
 ) {
+    const doCatch = this.doCatch;
+
     let url = baseUrl;
     if (isRefresh) {
         url += "/v1/auth/refresh";
@@ -54,7 +68,8 @@ async function token(
     }
 }
 
-async function basic(baseUrl, principal) {
+proto.basic = async function basic(baseUrl, principal) {
+    const doCatch = this.doCatch;
     const url = baseUrl + "/v1/auth/authenticate";
     const init = {
         method: "POST",
@@ -67,11 +82,13 @@ proto.authorized = function authorized() {
     return this.authorizedState;
 }
 
-async function doCatch(fetch) {
+proto.doCatch = async function doCatch(fetch) {
     try {
-        return await fetch();
+        return await fetch;
     } catch (error) {
-        console.error(error);
+        if (this.logErrors) {
+            console.error(error);
+        }
         return undefined;
     }
 }
