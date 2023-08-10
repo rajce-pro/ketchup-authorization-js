@@ -18,13 +18,13 @@ const client = authorizationn({
 let session;
 
 session = await client.authorize({ principal: 'username', credentials: 'password' });
-session = await client.authorize("token");
-session = await client.authorize("token", "refreshToken");
+session = await client.authorize('token');
+session = await client.authorize(['token', 'refreshToken']);
 
 // Is authorized? (success)
 const authorized = session.authorized();
 const details = session.user();
-const permission = session.nodeState("permission.node.value");
+const permission = session.nodeState('permission.node.value');
 
 // Authorize using callback
 client.authorize({ principal: 'username', credentials: 'password' }, (session) => {
