@@ -9,7 +9,7 @@ function Authorizer(baseUrl, principal, logErrors) {
 
 const proto = Authorizer.prototype;
 
-proto.authorize = async function authorize() {
+proto.authorize = async function() {
     const principal = this.principal;
     const url = this.baseUrl;
 
@@ -40,6 +40,35 @@ proto.authorize = async function authorize() {
     this.authorizedState = result !== undefined;
 
     return this;
+}
+
+proto.user = async function() {
+    return this.authorizedFetch('/v1/user/details', {});
+}
+
+proto.nodeState = async function(node) {
+    return this.authorizedFetch('/v1/node/checknode', {
+        method: 'POST', body: JSON.stringify({ node })
+    });
+}
+
+proto.authorizedFetch = async function(relative, fetchInit, retry = true) {
+    validateState(this);
+
+    const headers = fetchInit.headers || {};
+
+    if (!headers.hasOwnProperty("Authorization")) {
+        headers["Authorization"] = "Bearer " + this.principal;
+    }
+
+    fetchInit = Object.assign({}, fetchInit, { headers });
+
+    const result = await this.doCatch(fetch(this.baseUrl + relative, fetchInit));
+    if (result === undefined && retry) {
+        await this.authorize();
+        return await this.authorizedFetch(relative, fetchInit, false);
+    }
+    return result;
 }
 
 proto.token = async function token(
@@ -90,5 +119,11 @@ proto.doCatch = async function doCatch(fetch) {
             console.error(error);
         }
         return undefined;
+    }
+}
+
+function validateState(inst) {
+    if (!inst.authorizedState) {
+        throw new Error("Unauthorized");
     }
 }
